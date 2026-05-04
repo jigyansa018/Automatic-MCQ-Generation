@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCQ Generator - AI Powered Quiz Creator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 MCQ Generator</h1>
+            <p>Upload your PDF or TXT file and generate AI-powered multiple-choice questions instantly</p>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>📄 Upload Files</label>
+                <div class="file-upload">
+                    <input type="file" id="file" name="files[]" multiple accept=".pdf,.txt">
+                    <label for="file" class="file-upload-label">
+                        <span>📁 Click to upload PDF or TXT files</span>
+                    </label>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>📊 Questions</label>
+                    <select id="num_questions" name="num_questions">
+                        <option value="5">5 Questions</option>
+                        <option value="10">10 Questions</option>
+                        <option value="15">15 Questions</option>
+                        <option value="20">20 Questions</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>⚡ Difficulty</label>
+                    <select id="difficulty" name="difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-generate">Generate MCQs ✨</button>
+        </form>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
