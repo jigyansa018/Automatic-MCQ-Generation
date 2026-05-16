@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz History & Stats</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+     <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 40px 20px;
+        }
+        .header { text-align: center; color: white; margin-bottom: 40px; }
+        .header h1 { font-size: 36px; font-weight: 700; margin-bottom: 10px; }
+        .header p  { font-size: 18px; opacity: 0.9; }
+
+        .container { max-width: 960px; margin: 0 auto; }
+
+        /* Summary cards */
+        .summary-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 18px; margin-bottom: 30px;
+        }
+        .summary-card {
+            background: white; border-radius: 16px; padding: 24px 20px;
+            text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .summary-card .val {
+            font-size: 36px; font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .summary-card .lbl { font-size: 13px; color: #718096; margin-top: 4px; font-weight: 500; }
+
+        /* Chart cards */
+        .charts-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 20px; margin-bottom: 30px;
+        }
+        @media(max-width:640px){ .charts-grid{ grid-template-columns:1fr; } }
+        .chart-card {
+            background: white; border-radius: 16px; padding: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .chart-card h3 { font-size: 16px; color: #2d3748; margin-bottom: 16px; font-weight: 600; }
+
+        /* History table */
+        .table-card {
+            background: white; border-radius: 16px; padding: 28px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15); margin-bottom: 30px;
+        }
+        .table-card h3 { font-size: 18px; color: #2d3748; margin-bottom: 20px; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left; padding: 10px 14px;
+            background: #f7fafc; color: #4a5568;
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #2d3748; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f7f5ff; }
+
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+        }
+        .badge-easy   { background: #d4edda; color: #155724; }
+        .badge-medium { background: #fff3cd; color: #856404; }
+        .badge-hard   { background: #f8d7da; color: #721c24; }
+        .badge-ollama { background: #e0e7ff; color: #3730a3; }
+        .badge-spacy  { background: #fce7f3; color: #9d174d; }
+
+        .back-btn {
+            display: inline-block; padding: 12px 28px;
+            background: white; color: #667eea;
+            border-radius: 30px; font-size: 15px; font-weight: 600;
+            text-decoration: none; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+        }
+        .back-btn:hover { opacity: 0.9; }
+
+        .empty { text-align:center; color:#a0aec0; padding:40px 0; font-size:15px; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>📊 Quiz History & Stats</h1>
+    <p>Data visualisation of all your quiz sessions</p>
+</div>
+
+<div class="container">
+
+    <!-- Summary numbers -->
+    {% set total_sessions  = history | length %}
+    {% set total_questions = history | sum(attribute='num_q') %}
+    {% set ollama_count    = history | selectattr('engine','eq','ollama') | list | length %}
+    {% set spacy_count     = history | selectattr('engine','eq','spacy')  | list | length %}
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="val">{{ total_sessions }}</div>
+            <div class="lbl">Total Sessions</div>
+        </div>
+        <div class="summary-card">
+            <div class="val">{{ total_questions }}</div>
+            <div class="lbl">Questions Generated</div>
+        </div>
+        <div class="summary-card">
+            <div class="val">{{ ollama_count }}</div>
+            <div class="lbl">Ollama Sessions</div>
+        </div>
+        <div class="summary-card">
+            <div class="val">{{ spacy_count }}</div>
+            <div class="lbl">spaCy Sessions</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Questions per Session</h3>
+            <canvas id="barChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Difficulty Distribution</h3>
+            <canvas id="diffChart"></canvas>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="table-card">
+        <h3>Session History</h3>
+        {% if history %}
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date &amp; Time</th>
+                    <th>Questions</th>
+                    <th>Difficulty</th>
+                    <th>Engine</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in history %}
+                <tr>
+                    <td>{{ row.id }}</td>
+                    <td>{{ row.created_at[:19] | replace('T', ' ') }}</td>
+                    <td>{{ row.num_q }}</td>
+                    <td><span class="badge badge-{{ row.difficulty }}">{{ row.difficulty }}</span></td>
+                    <td><span class="badge badge-{{ row.engine }}">{{ row.engine }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty">No quiz sessions yet. Generate your first quiz!</div>
+        {% endif %}
+    </div>
+
+    <a href="/" class="back-btn">← Generate New Quiz</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // Data from Jinja
+    const history = {{ history | tojson }};
+
+    // Bar chart — questions per session (last 15)
+    const recent   = history.slice(0, 15).reverse();
+    const barLabels = recent.map(r => '#' + r.id);
+    const barData   = recent.map(r => r.num_q);
+
+    new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: {
+            labels: barLabels,
+            datasets: [{
+                label: 'Questions',
+                data: barData,
+                backgroundColor: 'rgba(102,126,234,0.7)',
+                borderColor: '#667eea',
+                borderWidth: 2,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 5 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Doughnut — difficulty breakdown
+    const easy   = history.filter(r => r.difficulty === 'easy').length;
+    const medium = history.filter(r => r.difficulty === 'medium').length;
+    const hard   = history.filter(r => r.difficulty === 'hard').length;
+
+    new Chart(document.getElementById('diffChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Easy', 'Medium', 'Hard'],
+            datasets: [{
+                data: [easy, medium, hard],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            cutout: '65%',
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+</script>
+</body>
+</html>

@@ -7,78 +7,94 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 40px 20px;
         }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-        }
+        .header { text-align: center; color: white; margin-bottom: 40px; }
         .header h1 { font-size: 36px; font-weight: 700; margin-bottom: 10px; }
         .header p  { font-size: 18px; opacity: 0.9; }
 
+        /* Engine badge */
+        .engine-pill {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 5px 16px;
+            border-radius: 20px;
+            font-size: 13px; font-weight: 600;
+            background: rgba(255,255,255,0.2);
+            color: white; border: 1px solid rgba(255,255,255,0.4);
+        }
+
         .container { max-width: 900px; margin: 0 auto; }
 
-        /* ── Score Banner ── */
+        /* Score Banner */
         #score-banner {
             display: none;
-            background: white;
-            border-radius: 16px;
-            padding: 24px 30px;
-            margin-bottom: 30px;
+            background: white; border-radius: 16px;
+            padding: 28px 30px; margin-bottom: 30px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             text-align: center;
         }
         #score-banner h2 { font-size: 28px; color: #1a202c; margin-bottom: 8px; }
         #score-banner p  { font-size: 16px; color: #4a5568; }
+
         .score-circle {
-            width: 100px; height: 100px;
-            border-radius: 50%;
+            width: 100px; height: 100px; border-radius: 50%;
             background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            font-size: 28px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            color: white; font-size: 28px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
             margin: 16px auto;
         }
 
-        /* ── Question Card ── */
+        /* Chart container inside score banner */
+        .chart-wrap {
+            max-width: 300px; margin: 20px auto 0;
+        }
+
+        .banner-links { display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+        .back-btn {
+            display: inline-block; padding: 12px 28px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 30px;
+            font-size: 15px; font-weight: 600;
+            cursor: pointer; text-decoration: none;
+        }
+        .back-btn:hover { opacity: 0.9; }
+        .stats-btn {
+            display: inline-block; padding: 12px 28px;
+            background: white; color: #667eea;
+            border: 2px solid #667eea; border-radius: 30px;
+            font-size: 15px; font-weight: 600;
+            cursor: pointer; text-decoration: none;
+        }
+        .stats-btn:hover { background: #f7f5ff; }
+
+        /* Question Card */
         .question-card {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
+            background: white; border-radius: 16px; padding: 30px;
             margin-bottom: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             transition: all 0.3s;
             border-left: 5px solid transparent;
         }
         .question-card:hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(0,0,0,0.25); }
-        .question-card.correct  { border-left-color: #28a745; }
-        .question-card.wrong    { border-left-color: #dc3545; }
-        .question-card.unanswered { border-left-color: #ffc107; }
+        .question-card.correct   { border-left-color: #28a745; }
+        .question-card.wrong     { border-left-color: #dc3545; }
+        .question-card.unanswered{ border-left-color: #ffc107; }
 
         .question-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;
         }
         .question-number {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 14px;
+            color: white; padding: 8px 16px; border-radius: 20px;
+            font-weight: 600; font-size: 14px;
         }
+        .badges { display: flex; gap: 8px; flex-wrap: wrap; }
         .difficulty-badge {
             padding: 6px 14px; border-radius: 20px;
             font-size: 12px; font-weight: 600; text-transform: uppercase;
@@ -92,33 +108,25 @@
             font-weight: 600; margin-bottom: 20px; line-height: 1.6;
         }
 
-        /* ── Options ── */
+        /* Options */
         .options { display: flex; flex-direction: column; gap: 10px; }
-
         .option { position: relative; }
         .option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
-
         .option label {
             display: flex; align-items: center; gap: 12px;
-            padding: 14px 18px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 15px; color: #2d3748;
+            padding: 14px 18px; border: 2px solid #e2e8f0;
+            border-radius: 10px; cursor: pointer;
+            transition: all 0.2s; font-size: 15px; color: #2d3748;
         }
         .option label .opt-letter {
-            min-width: 28px; height: 28px;
-            border-radius: 50%;
-            background: #edf2f7;
-            color: #4a5568;
+            min-width: 28px; height: 28px; border-radius: 50%;
+            background: #edf2f7; color: #4a5568;
             font-weight: 700; font-size: 13px;
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s;
         }
         .option label:hover { border-color: #667eea; background: #f7f5ff; }
         .option label:hover .opt-letter { background: #667eea; color: white; }
-
         .option input[type="radio"]:checked + label {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white; border-color: #667eea;
@@ -126,52 +134,30 @@
         .option input[type="radio"]:checked + label .opt-letter {
             background: rgba(255,255,255,0.3); color: white;
         }
-
-        /* After results are shown */
         .option.is-correct label  { background: #d4edda !important; border-color: #28a745 !important; color: #155724 !important; }
         .option.is-correct label .opt-letter { background: #28a745 !important; color: white !important; }
-
         .option.is-wrong label    { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
         .option.is-wrong label .opt-letter { background: #dc3545 !important; color: white !important; }
-
         .option input[type="radio"]:disabled + label { cursor: not-allowed; }
 
-        /* ── Feedback strip ── */
+        /* Feedback */
         .answer-feedback {
-            display: none;
-            margin-top: 14px;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
+            display: none; margin-top: 14px; padding: 10px 16px;
+            border-radius: 8px; font-weight: 600; font-size: 14px;
         }
         .answer-feedback.correct-fb { background: #d4edda; border-left: 4px solid #28a745; color: #155724; }
         .answer-feedback.wrong-fb   { background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; }
         .answer-feedback.skip-fb    { background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; }
 
-        /* ── Floating button ── */
+        /* Floating button */
         .show-results-btn {
             position: fixed; bottom: 30px; right: 30px;
-            padding: 16px 32px;
-            background: white; color: #667eea;
-            border: none; border-radius: 50px;
-            font-size: 17px; font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 16px 32px; background: white; color: #667eea;
+            border: none; border-radius: 50px; font-size: 17px; font-weight: 700;
+            cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             transition: all 0.3s; z-index: 1000;
         }
         .show-results-btn:hover { transform: scale(1.05); box-shadow: 0 15px 40px rgba(0,0,0,0.4); }
-
-        .back-btn {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 12px 28px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white; border: none; border-radius: 30px;
-            font-size: 15px; font-weight: 600;
-            cursor: pointer; text-decoration: none;
-        }
-        .back-btn:hover { opacity: 0.9; }
 
         @media (max-width: 768px) {
             .question-text { font-size: 16px; }
@@ -183,16 +169,27 @@
 <div class="header">
     <h1>📝 Your MCQ Quiz</h1>
     <p>Answer all questions, then click "Show Results" to see your score</p>
+    {% if engine %}
+    <span class="engine-pill">
+        {% if engine == "ollama" %}🤖 Ollama AI{% else %}🔬 spaCy NLP{% endif %}
+    </span>
+    {% endif %}
 </div>
 
 <div class="container">
-
-    <!-- Score Banner (hidden until results shown) -->
+    <!-- Score Banner -->
     <div id="score-banner">
         <h2>Quiz Complete! 🎉</h2>
         <div class="score-circle" id="score-display">0/0</div>
         <p id="score-message"></p>
-        <a href="/" class="back-btn">← Generate New Quiz</a>
+        <!-- Data Visualisation: mini doughnut chart -->
+        <div class="chart-wrap">
+            <canvas id="resultChart" width="260" height="260"></canvas>
+        </div>
+        <div class="banner-links">
+            <a href="/" class="back-btn">← Generate New Quiz</a>
+            <a href="/stats" class="stats-btn">📊 View History</a>
+        </div>
     </div>
 
     {% for mcq in mcqs %}
@@ -200,11 +197,11 @@
     <div class="question-card" id="card-{{ idx }}" data-correct="{{ mcq.correct_index }}">
         <div class="question-header">
             <span class="question-number">Question {{ loop.index }}</span>
-            <span class="difficulty-badge difficulty-{{ mcq.difficulty }}">{{ mcq.difficulty }}</span>
+            <div class="badges">
+                <span class="difficulty-badge difficulty-{{ mcq.difficulty }}">{{ mcq.difficulty }}</span>
+            </div>
         </div>
-
         <div class="question-text">{{ mcq.question }}</div>
-
         <div class="options">
             {% set letters = ['A', 'B', 'C', 'D'] %}
             {% for i in range(mcq.options | length) %}
@@ -217,34 +214,32 @@
             </div>
             {% endfor %}
         </div>
-
         <div class="answer-feedback" id="feedback-{{ idx }}"></div>
     </div>
     {% endfor %}
-
-</div><!-- .container -->
+</div>
 
 <button id="show-results-btn" class="show-results-btn" onclick="showResults()">Show Results 🎯</button>
 
+<!-- Chart.js for data visualisation -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     const totalQuestions = {{ mcqs | length }};
+    let resultChart = null;
 
     function showResults() {
-        let correct = 0, answered = 0;
+        let correct = 0, wrong = 0, skipped = 0;
 
         for (let i = 0; i < totalQuestions; i++) {
-            const card     = document.getElementById('card-' + i);
-            const feedback = document.getElementById('feedback-' + i);
+            const card       = document.getElementById('card-' + i);
+            const feedback   = document.getElementById('feedback-' + i);
             const correctIdx = parseInt(card.dataset.correct);
-            const selected = document.querySelector('input[name="answer' + i + '"]:checked');
+            const selected   = document.querySelector('input[name="answer' + i + '"]:checked');
 
-            // Disable all radios for this question
             document.querySelectorAll('input[name="answer' + i + '"]').forEach(r => r.disabled = true);
 
             if (selected) {
-                answered++;
                 const chosenIdx = parseInt(selected.value);
-
                 if (chosenIdx === correctIdx) {
                     correct++;
                     card.classList.add('correct');
@@ -252,38 +247,57 @@
                     feedback.className = 'answer-feedback correct-fb';
                     feedback.textContent = '✓ Correct!';
                 } else {
+                    wrong++;
                     card.classList.add('wrong');
                     document.getElementById('opt-' + i + '-' + chosenIdx).classList.add('is-wrong');
                     document.getElementById('opt-' + i + '-' + correctIdx).classList.add('is-correct');
                     feedback.className = 'answer-feedback wrong-fb';
-                    // Get correct answer text
                     const correctLabel = document.querySelector('#opt-' + i + '-' + correctIdx + ' label');
                     const correctText  = correctLabel ? correctLabel.textContent.trim().replace(/^[A-D]\s*/, '') : '';
                     feedback.textContent = '✗ Correct answer: ' + correctText;
                 }
             } else {
+                skipped++;
                 card.classList.add('unanswered');
                 document.getElementById('opt-' + i + '-' + correctIdx).classList.add('is-correct');
                 feedback.className = 'answer-feedback skip-fb';
                 feedback.textContent = '⚠ Skipped — see correct answer highlighted above.';
             }
-
             feedback.style.display = 'block';
         }
 
-        // Show score banner
-        const banner = document.getElementById('score-banner');
+        // Score text
         document.getElementById('score-display').textContent = correct + '/' + totalQuestions;
         const pct = Math.round((correct / totalQuestions) * 100);
         let msg = '';
-        if (pct === 100)     msg = '🏆 Perfect score! Outstanding!';
-        else if (pct >= 80)  msg = '🌟 Excellent work! You know this material well.';
-        else if (pct >= 60)  msg = '👍 Good job! A bit more review will get you there.';
-        else if (pct >= 40)  msg = '📖 Keep studying — you\'re making progress!';
-        else                  msg = '💡 Review the material and give it another shot!';
+        if (pct === 100)    msg = '🏆 Perfect score! Outstanding!';
+        else if (pct >= 80) msg = '🌟 Excellent work! You know this material well.';
+        else if (pct >= 60) msg = '👍 Good job! A bit more review will get you there.';
+        else if (pct >= 40) msg = "📖 Keep studying — you're making progress!";
+        else                msg = '💡 Review the material and give it another shot!';
         document.getElementById('score-message').textContent = msg + ' (' + pct + '%)';
-        banner.style.display = 'block';
 
+        // Data Visualisation — doughnut chart
+        const ctx = document.getElementById('resultChart').getContext('2d');
+        resultChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Correct', 'Wrong', 'Skipped'],
+                datasets: [{
+                    data: [correct, wrong, skipped],
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 13 } } }
+                }
+            }
+        });
+
+        document.getElementById('score-banner').style.display = 'block';
         document.getElementById('show-results-btn').style.display = 'none';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
