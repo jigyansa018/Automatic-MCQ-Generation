@@ -1,0 +1,13 @@
+HTML,CSS,JS
+Python
+Web development Basics
+fastapi Framework
+uvicorn
+File Handling & Uploading
+Data Validation with Pydantic
+Data Parsing and Manipulation
+Database Integration (Optional)
+Data Visualization (Optional)
+PDF Processing Libraries:PyPdf2,Pdfplumber
+CORS(Cross-Origin Resource Sharing) Handling
+AI/LLM Integration (Ollama API)
