@@ -139,36 +139,69 @@ def get_answer_candidates(span):
     return candidates
 
 
-# ── WH-QUESTION ────────────────────────────────────────────────────────────────
+# ── WH-QUESTION — natural sentence, NO "Who:" prefix ─────────────────────────
 WH_MAP = {
-    "PERSON":"Who","ORG":"Which organization","GPE":"Where","LOC":"Where",
-    "DATE":"When","TIME":"When","MONEY":"How much","CARDINAL":"How many",
-    "ORDINAL":"Which","PERCENT":"What percentage","PRODUCT":"Which product",
-    "EVENT":"What event","WORK_OF_ART":"What","LAW":"Which law",
-    "LANGUAGE":"Which language","QUANTITY":"How much",
+    "PERSON":      "Who",
+    "ORG":         "Which organization",
+    "GPE":         "Where",
+    "LOC":         "Where",
+    "DATE":        "When",
+    "TIME":        "When",
+    "MONEY":       "How much",
+    "CARDINAL":    "How many",
+    "ORDINAL":     "Which",
+    "PERCENT":     "What percentage",
+    "PRODUCT":     "Which product",
+    "EVENT":       "What event",
+    "WORK_OF_ART": "What",
+    "LAW":         "Which law",
+    "LANGUAGE":    "Which language",
+    "QUANTITY":    "How much",
 }
 PROCESS_WORDS = {"process","cause","affect","work","function","method",
                  "technique","approach","mechanism","system","way","means","manner"}
 
 def make_wh_question(sentence_text, answer, label):
+    """
+    Replaces the answer INSIDE the sentence with the question word so the
+    result reads as a natural question — never 'Who: ...' or 'What: ...'.
+
+    Before: "Newton discovered gravity in 1666."
+    After : "Who discovered gravity in 1666?"
+    """
     if label in WH_MAP:
         q_word = WH_MAP[label]
     elif label == "ADJ":
         q_word = "How"
-    elif label in ("CARDINAL","NUM"):
+    elif label in ("CARDINAL", "NUM"):
         q_word = "How many"
     elif any(pw in answer.lower() for pw in PROCESS_WORDS):
         q_word = "How"
     else:
         q_word = "What"
-    q_sentence = sentence_text.replace(answer, "________", 1)
-    return f"{q_word}: {q_sentence.strip()}", "WH"
+
+    # Swap the answer for the question word inside the sentence
+    q_sentence = sentence_text.replace(answer, q_word, 1).strip().rstrip(".")
+    # Ensure capitalisation and question mark
+    if q_sentence:
+        q_sentence = q_sentence[0].upper() + q_sentence[1:]
+    if not q_sentence.endswith("?"):
+        q_sentence += "?"
+
+    return q_sentence, "WH"
 
 
-# ── FILL-IN-THE-BLANK ─────────────────────────────────────────────────────────
+# ── FILL-IN-THE-BLANK — blank only, NO "Fill in the blank:" prefix ────────────
 def make_fill_question(sentence_text, answer):
-    q_sentence = sentence_text.replace(answer, "________", 1)
-    return f"Fill in the blank: {q_sentence.strip()}", "FILL"
+    """
+    Replaces the answer with '________' in the original sentence.
+    No label or prefix — just the sentence with the gap.
+
+    Before: "The mitochondria is the powerhouse of the cell."
+    After : "The ________ is the powerhouse of the cell."
+    """
+    q_sentence = sentence_text.replace(answer, "________", 1).strip()
+    return q_sentence, "FILL"
 
 
 # ── DISTRACTORS ────────────────────────────────────────────────────────────────
@@ -181,8 +214,8 @@ def get_distractors(correct, all_candidates, difficulty, num=3):
     else:
         random.shuffle(pool)
     distractors = pool[:num]
-    generic = ["None of the above","All of the above",
-               "Cannot be determined","Not mentioned in the text"]
+    generic = ["None of the above", "All of the above",
+               "Cannot be determined", "Not mentioned in the text"]
     i = 0
     while len(distractors) < num:
         g = generic[i % len(generic)]
@@ -200,7 +233,7 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
         return []
 
     full_doc_candidates = get_answer_candidates(doc)
-    mcqs = []
+    mcqs        = []
     used_answers = set()
     random.shuffle(sentences)
 
@@ -227,13 +260,15 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
         used_answers.add(answer.lower())
         sentence_text = sent.text.strip()
 
+        # Even index → natural WH question  (reads like "Who discovered …?")
+        # Odd  index → fill-in-the-blank    (reads like "The ________ is …")
         if len(mcqs) % 2 == 0:
             question, q_type = make_wh_question(sentence_text, answer, label)
         else:
             question, q_type = make_fill_question(sentence_text, answer)
 
-        distractors = get_distractors(answer, full_doc_candidates, difficulty)
-        options = [answer] + distractors
+        distractors   = get_distractors(answer, full_doc_candidates, difficulty)
+        options       = [answer] + distractors
         random.shuffle(options)
         correct_index = options.index(answer)
 
@@ -243,7 +278,7 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
             "answer":        answer,
             "correct_index": correct_index,
             "difficulty":    difficulty,
-            "type":          q_type,
+            "type":          q_type,   # "WH" or "FILL" — useful for styling
             "label":         label,
         })
 
@@ -273,9 +308,7 @@ def index():
             return render_template("index.html",
                 error="Not enough content to generate questions. Try a longer document.")
 
-        # Save session to history
         save_session(num_questions, difficulty, engine="spacy")
-
         return render_template("mcqs.html", mcqs=mcqs,
                                num_questions=num_questions, engine="spacy")
 
