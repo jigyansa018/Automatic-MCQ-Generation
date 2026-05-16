@@ -6,35 +6,51 @@
     <title>Your MCQ Quiz</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 40px 20px;
         }
+
         .header {
             text-align: center;
             color: white;
             margin-bottom: 40px;
         }
-        .header h1 {
-            font-size: 36px;
+        .header h1 { font-size: 36px; font-weight: 700; margin-bottom: 10px; }
+        .header p  { font-size: 18px; opacity: 0.9; }
+
+        .container { max-width: 900px; margin: 0 auto; }
+
+        /* ── Score Banner ── */
+        #score-banner {
+            display: none;
+            background: white;
+            border-radius: 16px;
+            padding: 24px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        #score-banner h2 { font-size: 28px; color: #1a202c; margin-bottom: 8px; }
+        #score-banner p  { font-size: 16px; color: #4a5568; }
+        .score-circle {
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-size: 28px;
             font-weight: 700;
-            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 16px auto;
         }
-        .header p {
-            font-size: 18px;
-            opacity: 0.9;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
+
+        /* ── Question Card ── */
         .question-card {
             background: white;
             border-radius: 16px;
@@ -42,11 +58,13 @@
             margin-bottom: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             transition: all 0.3s;
+            border-left: 5px solid transparent;
         }
-        .question-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-        }
+        .question-card:hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(0,0,0,0.25); }
+        .question-card.correct  { border-left-color: #28a745; }
+        .question-card.wrong    { border-left-color: #dc3545; }
+        .question-card.unanswered { border-left-color: #ffc107; }
+
         .question-header {
             display: flex;
             justify-content: space-between;
@@ -62,159 +80,213 @@
             font-size: 14px;
         }
         .difficulty-badge {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
+            padding: 6px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
         }
-        .difficulty-easy {
-            background: #d4edda;
-            color: #155724;
-        }
-        .difficulty-medium {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .difficulty-hard {
-            background: #f8d7da;
-            color: #721c24;
-        }
+        .difficulty-easy   { background: #d4edda; color: #155724; }
+        .difficulty-medium { background: #fff3cd; color: #856404; }
+        .difficulty-hard   { background: #f8d7da; color: #721c24; }
+
         .question-text {
-            font-size: 20px;
-            color: #1a202c;
-            font-weight: 600;
-            margin-bottom: 25px;
-            line-height: 1.6;
+            font-size: 18px; color: #1a202c;
+            font-weight: 600; margin-bottom: 20px; line-height: 1.6;
         }
-        .options {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .option {
-            position: relative;
-        }
-        .option input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-        }
+
+        /* ── Options ── */
+        .options { display: flex; flex-direction: column; gap: 10px; }
+
+        .option { position: relative; }
+        .option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+
         .option label {
-            display: block;
-            padding: 16px 20px;
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 18px;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
             cursor: pointer;
-            transition: all 0.3s;
-            font-size: 16px;
-            color: #2d3748;
+            transition: all 0.2s;
+            font-size: 15px; color: #2d3748;
         }
+        .option label .opt-letter {
+            min-width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #edf2f7;
+            color: #4a5568;
+            font-weight: 700; font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .option label:hover { border-color: #667eea; background: #f7f5ff; }
+        .option label:hover .opt-letter { background: #667eea; color: white; }
+
         .option input[type="radio"]:checked + label {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: #667eea;
+            color: white; border-color: #667eea;
         }
-        .option label:hover {
-            border-color: #667eea;
-            background: #f7fafc;
+        .option input[type="radio"]:checked + label .opt-letter {
+            background: rgba(255,255,255,0.3); color: white;
         }
-        .option input[type="radio"]:checked + label:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .option input[type="radio"]:disabled + label {
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-        .correct-answer {
+
+        /* After results are shown */
+        .option.is-correct label  { background: #d4edda !important; border-color: #28a745 !important; color: #155724 !important; }
+        .option.is-correct label .opt-letter { background: #28a745 !important; color: white !important; }
+
+        .option.is-wrong label    { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
+        .option.is-wrong label .opt-letter { background: #dc3545 !important; color: white !important; }
+
+        .option input[type="radio"]:disabled + label { cursor: not-allowed; }
+
+        /* ── Feedback strip ── */
+        .answer-feedback {
             display: none;
-            margin-top: 15px;
-            padding: 12px 16px;
-            background: #d4edda;
-            border-left: 4px solid #28a745;
+            margin-top: 14px;
+            padding: 10px 16px;
             border-radius: 8px;
-            color: #155724;
             font-weight: 600;
+            font-size: 14px;
         }
+        .answer-feedback.correct-fb { background: #d4edda; border-left: 4px solid #28a745; color: #155724; }
+        .answer-feedback.wrong-fb   { background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; }
+        .answer-feedback.skip-fb    { background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; }
+
+        /* ── Floating button ── */
         .show-results-btn {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            padding: 18px 36px;
-            background: white;
-            color: #667eea;
-            border: none;
-            border-radius: 50px;
-            font-size: 18px;
-            font-weight: 700;
+            position: fixed; bottom: 30px; right: 30px;
+            padding: 16px 32px;
+            background: white; color: #667eea;
+            border: none; border-radius: 50px;
+            font-size: 17px; font-weight: 700;
             cursor: pointer;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: all 0.3s;
-            z-index: 1000;
+            transition: all 0.3s; z-index: 1000;
         }
-        .show-results-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        .show-results-btn:hover { transform: scale(1.05); box-shadow: 0 15px 40px rgba(0,0,0,0.4); }
+
+        .back-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 30px;
+            font-size: 15px; font-weight: 600;
+            cursor: pointer; text-decoration: none;
         }
+        .back-btn:hover { opacity: 0.9; }
+
         @media (max-width: 768px) {
-            .question-text {
-                font-size: 18px;
-            }
-            .show-results-btn {
-                bottom: 20px;
-                right: 20px;
-                padding: 14px 28px;
-                font-size: 16px;
-            }
+            .question-text { font-size: 16px; }
+            .show-results-btn { bottom: 20px; right: 20px; padding: 12px 24px; font-size: 15px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📝 Your MCQ Quiz</h1>
-        <p>Answer all questions and click "Show Results" to see your score</p>
-    </div>
-    <div class="container">
-        {% for index, mcq in mcqs %}
-            <div class="question-card">
-                <div class="question-header">
-                    <span class="question-number">Question {{ index }}</span>
-                    <span class="difficulty-badge difficulty-{{ mcq[3] }}">{{ mcq[3] }}</span>
-                </div>
-                <div class="question-text">{{ mcq[0] }}?</div>
-                <div class="options">
-                    {% set options = ['A', 'B', 'C', 'D'] %}
-                    {% set num_choices = mcq[1]|length %}
-                    {% for choice_index in range(num_choices) %}
-                        <div class="option">
-                            <input type="radio" name="answer{{ index }}" id="choice{{ index }}{{ choice_index }}" value="{{ choice_index }}">
-                            <label for="choice{{ index }}{{ choice_index }}">
-                                <strong>{{ options[choice_index] }}.</strong> {{ mcq[1][choice_index] }}
-                            </label>
-                        </div>
-                    {% endfor %}
-                </div>
-                <div class="correct-answer">✓ Correct Answer: {{ mcq[2] }}</div>
-            </div>
-        {% endfor %}
-    </div>
-    <button id="show-results-btn" class="show-results-btn">Show Results 🎯</button>
+<div class="header">
+    <h1>📝 Your MCQ Quiz</h1>
+    <p>Answer all questions, then click "Show Results" to see your score</p>
+</div>
 
-    <script>
-        document.getElementById('show-results-btn').addEventListener('click', function() {
-            var correctAnswers = document.getElementsByClassName('correct-answer');
-            for (var i = 0; i < correctAnswers.length; i++) {
-                correctAnswers[i].style.display = 'block';
+<div class="container">
+
+    <!-- Score Banner (hidden until results shown) -->
+    <div id="score-banner">
+        <h2>Quiz Complete! 🎉</h2>
+        <div class="score-circle" id="score-display">0/0</div>
+        <p id="score-message"></p>
+        <a href="/" class="back-btn">← Generate New Quiz</a>
+    </div>
+
+    {% for mcq in mcqs %}
+    {% set idx = loop.index0 %}
+    <div class="question-card" id="card-{{ idx }}" data-correct="{{ mcq.correct_index }}">
+        <div class="question-header">
+            <span class="question-number">Question {{ loop.index }}</span>
+            <span class="difficulty-badge difficulty-{{ mcq.difficulty }}">{{ mcq.difficulty }}</span>
+        </div>
+
+        <div class="question-text">{{ mcq.question }}</div>
+
+        <div class="options">
+            {% set letters = ['A', 'B', 'C', 'D'] %}
+            {% for i in range(mcq.options | length) %}
+            <div class="option" id="opt-{{ idx }}-{{ i }}">
+                <input type="radio" name="answer{{ idx }}" id="choice{{ idx }}{{ i }}" value="{{ i }}">
+                <label for="choice{{ idx }}{{ i }}">
+                    <span class="opt-letter">{{ letters[i] }}</span>
+                    {{ mcq.options[i] }}
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="answer-feedback" id="feedback-{{ idx }}"></div>
+    </div>
+    {% endfor %}
+
+</div><!-- .container -->
+
+<button id="show-results-btn" class="show-results-btn" onclick="showResults()">Show Results 🎯</button>
+
+<script>
+    const totalQuestions = {{ mcqs | length }};
+
+    function showResults() {
+        let correct = 0, answered = 0;
+
+        for (let i = 0; i < totalQuestions; i++) {
+            const card     = document.getElementById('card-' + i);
+            const feedback = document.getElementById('feedback-' + i);
+            const correctIdx = parseInt(card.dataset.correct);
+            const selected = document.querySelector('input[name="answer' + i + '"]:checked');
+
+            // Disable all radios for this question
+            document.querySelectorAll('input[name="answer' + i + '"]').forEach(r => r.disabled = true);
+
+            if (selected) {
+                answered++;
+                const chosenIdx = parseInt(selected.value);
+
+                if (chosenIdx === correctIdx) {
+                    correct++;
+                    card.classList.add('correct');
+                    document.getElementById('opt-' + i + '-' + chosenIdx).classList.add('is-correct');
+                    feedback.className = 'answer-feedback correct-fb';
+                    feedback.textContent = '✓ Correct!';
+                } else {
+                    card.classList.add('wrong');
+                    document.getElementById('opt-' + i + '-' + chosenIdx).classList.add('is-wrong');
+                    document.getElementById('opt-' + i + '-' + correctIdx).classList.add('is-correct');
+                    feedback.className = 'answer-feedback wrong-fb';
+                    // Get correct answer text
+                    const correctLabel = document.querySelector('#opt-' + i + '-' + correctIdx + ' label');
+                    const correctText  = correctLabel ? correctLabel.textContent.trim().replace(/^[A-D]\s*/, '') : '';
+                    feedback.textContent = '✗ Correct answer: ' + correctText;
+                }
+            } else {
+                card.classList.add('unanswered');
+                document.getElementById('opt-' + i + '-' + correctIdx).classList.add('is-correct');
+                feedback.className = 'answer-feedback skip-fb';
+                feedback.textContent = '⚠ Skipped — see correct answer highlighted above.';
             }
-            
-            // Disable all radio buttons
-            var allRadios = document.querySelectorAll('input[type="radio"]');
-            for (var i = 0; i < allRadios.length; i++) {
-                allRadios[i].disabled = true;
-            }
-            
-            this.style.display = 'none';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    </script>
+
+            feedback.style.display = 'block';
+        }
+
+        // Show score banner
+        const banner = document.getElementById('score-banner');
+        document.getElementById('score-display').textContent = correct + '/' + totalQuestions;
+        const pct = Math.round((correct / totalQuestions) * 100);
+        let msg = '';
+        if (pct === 100)     msg = '🏆 Perfect score! Outstanding!';
+        else if (pct >= 80)  msg = '🌟 Excellent work! You know this material well.';
+        else if (pct >= 60)  msg = '👍 Good job! A bit more review will get you there.';
+        else if (pct >= 40)  msg = '📖 Keep studying — you\'re making progress!';
+        else                  msg = '💡 Review the material and give it another shot!';
+        document.getElementById('score-message').textContent = msg + ' (' + pct + '%)';
+        banner.style.display = 'block';
+
+        document.getElementById('show-results-btn').style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
 </body>
 </html>
