@@ -6,6 +6,7 @@ import spacy
 import random
 import string
 import sqlite3
+import re
 import PyPDF2
 import io
 from datetime import datetime
@@ -69,15 +70,58 @@ EXCLUDED_POS = {"ADP","VERB","AUX","CONJ","CCONJ","SCONJ",
                 "DET","PUNCT","SPACE","PART","INTJ"}
 
 
-# ── TEXT CLEANING ──────────────────────────────────────────────────────────────
-def clean_text(text):
-    cleaned = ""
-    for ch in text:
-        if ch in string.punctuation and ch not in ".,'":
-            cleaned += " "
-        else:
-            cleaned += ch
-    return " ".join(cleaned.split())
+# ── PDF / TEXT CLEANING ────────────────────────────────────────────────────────
+_NOISE_PATTERNS = re.compile(
+    r"""
+    ^\s*\d+\s*$                        # lone page numbers
+    | ^\s*page\s+\d+                   # "Page 3"
+    | ^\s*chapter\s+\d+                # "Chapter 1"
+    | ^\s*figure\s+\d+                 # "Figure 2"
+    | ^\s*table\s+\d+                  # "Table 4"
+    | ^\s*\d+\.\d+(\.\d+)*\s          # "1.2.3 Section heading"
+    | @                                # email addresses
+    | https?://                        # URLs
+    | copyright|\(c\)                  # copyright lines
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+def _is_mostly_upper(line: str) -> bool:
+    """Lines that are mostly uppercase are headings, names, or institution labels."""
+    letters = [c for c in line if c.isalpha()]
+    if not letters:
+        return False
+    return sum(1 for c in letters if c.isupper()) / len(letters) > 0.6
+
+def clean_text(raw: str) -> str:
+    """
+    Strip noise lines from raw extracted text, then re-join into clean prose.
+    Handles:
+      - Page numbers, figure/table captions, section numbers
+      - Author names / institution lines (mostly-uppercase)
+      - URLs, emails, copyright lines
+      - Lines with fewer than 5 words (headers, labels)
+    """
+    lines = raw.splitlines()
+    good_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if _NOISE_PATTERNS.search(stripped):
+            continue
+        if _is_mostly_upper(stripped):
+            continue
+        if len(stripped.split()) < 5:          # too short to be real content
+            continue
+        good_lines.append(stripped)
+
+    text = " ".join(good_lines)
+    text = re.sub(r'\s+', ' ', text)
+    # Remove isolated single capital letters (OCR noise, e.g. "S .")
+    text = re.sub(r'\b[A-Z]\b\.?\s*', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 
 # ── FILE EXTRACTION ────────────────────────────────────────────────────────────
@@ -85,66 +129,146 @@ def extract_text(file):
     filename = file.filename.lower()
     if filename.endswith(".pdf"):
         reader = PyPDF2.PdfReader(io.BytesIO(file.read()))
-        text = ""
+        raw = ""
         for page in reader.pages:
             t = page.extract_text()
             if t:
-                text += t + " "
-        return clean_text(text)
+                raw += t + "\n"
+        return clean_text(raw)
     elif filename.endswith(".txt"):
         return clean_text(file.read().decode("utf-8", errors="ignore"))
     return ""
 
 
-# ── GOOD SENTENCES ─────────────────────────────────────────────────────────────
+# ── SENTENCE QUALITY SCORING ───────────────────────────────────────────────────
+_CONCEPT_VERBS = {
+    "is","are","was","were","refers","defines","means","represents",
+    "consists","contains","includes","involves","requires","provides",
+    "enables","allows","supports","uses","performs","processes",
+    "stores","manages","controls","creates","generates","converts",
+    "transmits","receives","connects","operates","executes","runs",
+    "handles","implements","describes","indicates","shows","demonstrates",
+    "called","known","defined","used","applied","classified","divided",
+}
+
+def _sentence_quality_score(sent) -> float:
+    """
+    Score a sentence 0–1 for suitability as a quiz question source.
+
+    Penalise:
+      - High proportion of PROPN (names, places) → likely metadata
+      - No common NOUN (not a conceptual statement)
+      - No VERB (incomplete sentence)
+
+    Reward:
+      - Has subject + verb + object structure
+      - Contains concept-level vocabulary
+      - Reasonable length (10–50 words)
+    """
+    tokens = [t for t in sent if not t.is_space and not t.is_punct]
+    if not tokens:
+        return 0.0
+
+    total        = len(tokens)
+    propn_count  = sum(1 for t in tokens if t.pos_ == "PROPN")
+    verb_count   = sum(1 for t in tokens if t.pos_ == "VERB")
+    noun_count   = sum(1 for t in tokens if t.pos_ == "NOUN")   # common nouns only
+
+    # Hard disqualifiers
+    if propn_count / total > 0.40:   # more than 40 % proper nouns → noise
+        return 0.0
+    if verb_count == 0:
+        return 0.0
+    if noun_count == 0:              # must have at least one common noun
+        return 0.0
+
+    has_concept_verb = any(t.lemma_.lower() in _CONCEPT_VERBS for t in tokens)
+
+    score  = 0.5
+    score -= (propn_count / total) * 0.5
+    score += min(verb_count / total, 0.15)
+    score += min(noun_count / total, 0.20)
+    if has_concept_verb:
+        score += 0.15
+
+    return min(max(score, 0.0), 1.0)
+
+
 def get_good_sentences(doc):
+    """
+    Return sentences sorted best-first.
+    Filters:
+      - length 10–55 tokens
+      - starts with uppercase letter
+      - ends with sentence-final punctuation
+      - quality score ≥ 0.4
+    """
     good = []
     for sent in doc.sents:
         tokens = [t for t in sent if not t.is_space]
-        if len(tokens) < 8:
+        if not (10 <= len(tokens) <= 55):
             continue
-        has_verb = any(t.pos_ == "VERB" for t in tokens)
-        has_noun = any(t.pos_ in ("NOUN", "PROPN") for t in tokens)
-        if has_verb and has_noun:
-            good.append(sent)
-    return good
+        text = sent.text.strip()
+        if not text or not text[0].isupper():
+            continue
+        if text[-1] not in ".!?":
+            continue
+        score = _sentence_quality_score(sent)
+        if score >= 0.4:
+            good.append((score, sent))
+
+    good.sort(key=lambda x: x[0], reverse=True)
+    return [sent for _, sent in good]
 
 
 # ── ANSWER CANDIDATES ──────────────────────────────────────────────────────────
+# Only entity types that make sense as quiz answers
+_ALLOWED_ENT_TYPES = {
+    "ORG", "PRODUCT", "EVENT", "WORK_OF_ART", "LAW", "LANGUAGE",
+    "DATE", "TIME", "MONEY", "PERCENT", "QUANTITY", "CARDINAL", "ORDINAL",
+}
+
 def get_answer_candidates(span):
     candidates = []
     seen = set()
 
+    # Named entities — only allowed types (skip PERSON, GPE, LOC — too noisy)
     for ent in span.ents:
+        if ent.label_ not in _ALLOWED_ENT_TYPES:
+            continue
         word = ent.text.strip()
         if len(word) > 1 and word.lower() not in STOPWORDS and word.lower() not in seen:
             seen.add(word.lower())
             candidates.append((word, ent.label_))
 
+    # Noun chunks — only if they contain at least one common noun (not all PROPN)
     for chunk in span.noun_chunks:
+        if not any(t.pos_ == "NOUN" for t in chunk):
+            continue
         word = chunk.text.strip()
         if len(word) > 1 and word.lower() not in STOPWORDS and word.lower() not in seen:
             seen.add(word.lower())
             candidates.append((word, "NOUN_CHUNK"))
 
+    # Individual common nouns and adjectives only
     for token in span:
-        if token.pos_ not in EXCLUDED_POS:
-            word = token.text.strip()
-            if (len(word) > 1 and word.lower() not in STOPWORDS
-                    and not token.is_punct and not token.is_space
-                    and word.lower() not in seen):
-                seen.add(word.lower())
-                candidates.append((word, token.pos_))
+        if token.pos_ not in ("NOUN", "ADJ"):
+            continue
+        word = token.text.strip()
+        if (len(word) > 2
+                and word.lower() not in STOPWORDS
+                and not token.is_punct
+                and not token.is_space
+                and word.lower() not in seen):
+            seen.add(word.lower())
+            candidates.append((word, token.pos_))
 
     return candidates
 
 
-# ── WH-QUESTION — natural sentence, NO "Who:" prefix ─────────────────────────
+# ── WH-QUESTION — natural, NO "Who:" / "What:" prefix ────────────────────────
 WH_MAP = {
-    "PERSON":      "Who",
     "ORG":         "Which organization",
-    "GPE":         "Where",
-    "LOC":         "Where",
     "DATE":        "When",
     "TIME":        "When",
     "MONEY":       "How much",
@@ -157,32 +281,27 @@ WH_MAP = {
     "LAW":         "Which law",
     "LANGUAGE":    "Which language",
     "QUANTITY":    "How much",
+    "NOUN_CHUNK":  "What",
+    "NOUN":        "What",
+    "ADJ":         "How",
 }
 PROCESS_WORDS = {"process","cause","affect","work","function","method",
                  "technique","approach","mechanism","system","way","means","manner"}
 
 def make_wh_question(sentence_text, answer, label):
     """
-    Replaces the answer INSIDE the sentence with the question word so the
-    result reads as a natural question — never 'Who: ...' or 'What: ...'.
+    Replace the answer inside the sentence with the WH question word.
 
-    Before: "Newton discovered gravity in 1666."
-    After : "Who discovered gravity in 1666?"
+    Example:
+      "Embedded software resides in read-only memory."
+      answer = "memory"  → "What does embedded software reside in?"
+      (simple replacement approach)
     """
-    if label in WH_MAP:
-        q_word = WH_MAP[label]
-    elif label == "ADJ":
+    q_word = WH_MAP.get(label, "What")
+    if any(pw in answer.lower() for pw in PROCESS_WORDS):
         q_word = "How"
-    elif label in ("CARDINAL", "NUM"):
-        q_word = "How many"
-    elif any(pw in answer.lower() for pw in PROCESS_WORDS):
-        q_word = "How"
-    else:
-        q_word = "What"
 
-    # Swap the answer for the question word inside the sentence
     q_sentence = sentence_text.replace(answer, q_word, 1).strip().rstrip(".")
-    # Ensure capitalisation and question mark
     if q_sentence:
         q_sentence = q_sentence[0].upper() + q_sentence[1:]
     if not q_sentence.endswith("?"):
@@ -191,14 +310,15 @@ def make_wh_question(sentence_text, answer, label):
     return q_sentence, "WH"
 
 
-# ── FILL-IN-THE-BLANK — blank only, NO "Fill in the blank:" prefix ────────────
+# ── FILL-IN-THE-BLANK — NO prefix ────────────────────────────────────────────
 def make_fill_question(sentence_text, answer):
     """
-    Replaces the answer with '________' in the original sentence.
-    No label or prefix — just the sentence with the gap.
+    Replace the answer with a blank.  No 'Fill in the blank:' prefix.
 
-    Before: "The mitochondria is the powerhouse of the cell."
-    After : "The ________ is the powerhouse of the cell."
+    Example:
+      "The CPU executes instructions stored in memory."
+      answer = "instructions"
+      result = "The CPU executes ________ stored in memory."
     """
     q_sentence = sentence_text.replace(answer, "________", 1).strip()
     return q_sentence, "FILL"
@@ -228,14 +348,13 @@ def get_distractors(correct, all_candidates, difficulty, num=3):
 # ── MCQ GENERATION ────────────────────────────────────────────────────────────
 def generate_mcqs(text, num_questions=10, difficulty="medium"):
     doc = nlp(text)
-    sentences = get_good_sentences(doc)
+    sentences = get_good_sentences(doc)   # already sorted best-first
     if not sentences:
         return []
 
     full_doc_candidates = get_answer_candidates(doc)
     mcqs        = []
     used_answers = set()
-    random.shuffle(sentences)
 
     for sent in sentences:
         if len(mcqs) >= num_questions:
@@ -245,23 +364,19 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
         if not sent_candidates:
             continue
 
-        answer, label = sent_candidates[0]
-
-        if answer.lower() in used_answers:
-            found = False
-            for ans, lbl in sent_candidates[1:]:
-                if ans.lower() not in used_answers:
-                    answer, label = ans, lbl
-                    found = True
-                    break
-            if not found:
-                continue
+        # Pick the first unused, meaningful answer from this sentence
+        answer, label = None, None
+        for ans, lbl in sent_candidates:
+            if ans.lower() not in used_answers and ans in sent.text:
+                answer, label = ans, lbl
+                break
+        if answer is None:
+            continue
 
         used_answers.add(answer.lower())
         sentence_text = sent.text.strip()
 
-        # Even index → natural WH question  (reads like "Who discovered …?")
-        # Odd  index → fill-in-the-blank    (reads like "The ________ is …")
+        # Alternate: even → WH question, odd → fill-in-the-blank
         if len(mcqs) % 2 == 0:
             question, q_type = make_wh_question(sentence_text, answer, label)
         else:
@@ -278,7 +393,7 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
             "answer":        answer,
             "correct_index": correct_index,
             "difficulty":    difficulty,
-            "type":          q_type,   # "WH" or "FILL" — useful for styling
+            "type":          q_type,
             "label":         label,
         })
 
