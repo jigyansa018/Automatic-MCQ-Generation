@@ -1,18 +1,46 @@
-# pip install flask flask-bootstrap spacy PyPDF2
+# pip install flask spacy PyPDF2
 # python -m spacy download en_core_web_sm
 
 from flask import Flask, render_template, request
-from flask_bootstrap import Bootstrap
 import spacy
-from collections import Counter
 import random
 import string
+import sqlite3
 import PyPDF2
 import io
+from datetime import datetime
 
 app = Flask(__name__)
-Bootstrap(app)
 nlp = spacy.load("en_core_web_sm")
+
+DATABASE = "quiz_history.db"
+
+# ── DATABASE ───────────────────────────────────────────────────────────────────
+def init_db():
+    with sqlite3.connect(DATABASE) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS history (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT,
+                num_q      INTEGER,
+                difficulty TEXT,
+                engine     TEXT
+            )
+        """)
+
+def save_session(num_q, difficulty, engine="spacy"):
+    with sqlite3.connect(DATABASE) as conn:
+        conn.execute(
+            "INSERT INTO history (created_at, num_q, difficulty, engine) VALUES (?,?,?,?)",
+            (datetime.utcnow().isoformat(), num_q, difficulty, engine)
+        )
+
+def get_history():
+    with sqlite3.connect(DATABASE) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM history ORDER BY id DESC").fetchall()
+        return [dict(r) for r in rows]
+
 
 # ── STOPWORDS ──────────────────────────────────────────────────────────────────
 STOPWORDS = set([
@@ -37,7 +65,6 @@ STOPWORDS = set([
     "different","important","said","say","says","per","etc","ie","eg",
 ])
 
-# POS tags excluded from answers
 EXCLUDED_POS = {"ADP","VERB","AUX","CONJ","CCONJ","SCONJ",
                 "DET","PUNCT","SPACE","PART","INTJ"}
 
@@ -173,7 +200,6 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
         return []
 
     full_doc_candidates = get_answer_candidates(doc)
-
     mcqs = []
     used_answers = set()
     random.shuffle(sentences)
@@ -216,6 +242,7 @@ def generate_mcqs(text, num_questions=10, difficulty="medium"):
             "options":       options,
             "answer":        answer,
             "correct_index": correct_index,
+            "difficulty":    difficulty,
             "type":          q_type,
             "label":         label,
         })
@@ -246,10 +273,21 @@ def index():
             return render_template("index.html",
                 error="Not enough content to generate questions. Try a longer document.")
 
-        return render_template("mcqs.html", mcqs=mcqs, num_questions=num_questions)
+        # Save session to history
+        save_session(num_questions, difficulty, engine="spacy")
+
+        return render_template("mcqs.html", mcqs=mcqs,
+                               num_questions=num_questions, engine="spacy")
 
     return render_template("index.html")
 
 
+@app.route("/stats")
+def stats():
+    history = get_history()
+    return render_template("stats.html", history=history)
+
+
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True)
